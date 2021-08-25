@@ -31,11 +31,10 @@ class eNLPDataset(Dataset):
         outputs = {key: [] for key in self.data}
         for item in batch:
             pad_length = max_length - len(item['input_ids'])
-            for key in item.keys():
-                if type(item[key]) != list:
-                    outputs[key].append(item[key])
-                else:
-                    outputs[key].append(torch.tensor(item[key] + [self.tokenizer.pad_token_id] * pad_length))
+            outputs['input_ids'].append(torch.tensor(item['input_ids'] + [self.tokenizer.pad_token_id] * pad_length))
+            outputs['attention_mask'].append(torch.tensor([1]*len(item['input_ids']) + [0]*pad_length))
+            outputs['index'].append(item['index'])
+            outputs['wp_ends'].append(torch.tensor(item['wp_ends'] + [0] * pad_length))
         return {key: torch.stack(outputs[key]) if type(outputs[key][0]) == torch.Tensor else outputs[key] for key in outputs}
 
 
@@ -58,10 +57,14 @@ class eNLPPipeline(Pipeline):
                                                             attention_masks=batch['attention_mask'])
             wordpiece_scores = self._tokenizer[self._config.active_lang].tokenizer_ffn(wordpiece_reprs)
             batch['token_labels'] = torch.argmax(wordpiece_scores, dim=2).cpu()
-
-            for key in outputs:
-                values = batch[key].tolist() if type(batch[key]) == torch.Tensor else batch[key]
-                outputs[key].extend(values)
+            labels, ends = [], []
+            for l, e in zip(batch['token_labels'], batch['wp_ends']):
+                i = e.argmax()
+                labels.append(l[:i].tolist())
+                ends.append(e[1:i + 1].tolist())
+            outputs['index'].extend(batch['index'])
+            outputs['token_labels'].extend(labels)
+            outputs['wp_ends'].extend(ends)
 
         return outputs
 
