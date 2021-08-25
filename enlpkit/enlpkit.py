@@ -48,7 +48,7 @@ class eNLPPipeline(Pipeline):
         self._load_adapter_weights(model_name='tokenizer')
 
         dataloader = DataLoader(dataset, batch_size=eval_batch_size, shuffle=False, collate_fn=dataset.collate_fn)
-        outputs = {key: [] for key in ['index', 'token_labels', 'wp_ends']}
+        outputs = {key: [] for key in ['text', 'index', 'token_labels', 'wp_ends']}
         for batch in tqdm(dataloader):
             batch['input_ids'] = batch['input_ids'].to(self._config.device)
             batch['attention_mask'] = batch['attention_mask'].to(self._config.device)
@@ -57,11 +57,13 @@ class eNLPPipeline(Pipeline):
                                                             attention_masks=batch['attention_mask'])
             wordpiece_scores = self._tokenizer[self._config.active_lang].tokenizer_ffn(wordpiece_reprs)
             batch['token_labels'] = torch.argmax(wordpiece_scores, dim=2).cpu()
-            labels, ends = [], []
-            for l, e in zip(batch['token_labels'], batch['wp_ends']):
+            text, labels, ends = [], [], []
+            for input_ids, l, e in zip(batch['input_ids'], batch['token_labels'], batch['wp_ends']):
                 i = e.argmax()
+                text.append(dataset.tokenizer.decode(input_ids, skip_special_tokens=True))
                 labels.append(l[:i].tolist())
                 ends.append(e[1:i + 1].tolist())
+            outputs['text'].extend(text)
             outputs['index'].extend(batch['index'])
             outputs['token_labels'].extend(labels)
             outputs['wp_ends'].extend(ends)
