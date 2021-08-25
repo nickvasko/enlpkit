@@ -51,10 +51,14 @@ class eNLPPipeline(Pipeline):
         dataloader = DataLoader(dataset, batch_size=eval_batch_size, shuffle=False, collate_fn=dataset.collate_fn)
         outputs = {key: [] for key in dataset.data}
         for batch in tqdm(dataloader):
+            batch['input_ids'] = batch['input_ids'].to(self._config.device)
+            batch['attention_mask'] = batch['attention_mask'].to(self._config.device)
             wordpiece_reprs = self._embedding_layers.encode(piece_idxs=batch['input_ids'],
                                                             attention_masks=batch['attention_mask'])
             wordpiece_scores = self._tokenizer[self._config.active_lang].tokenizer_ffn(wordpiece_reprs)
             batch['token_labels'] = torch.argmax(wordpiece_scores, dim=2).cpu()
+            batch['input_ids'] = batch['input_ids'].cpu()
+            batch['attention_mask'] = batch['attention_mask'].cpu()
 
             for key in outputs:
                 values = batch[key].tolist() if type(batch[key]) == torch.Tensor else batch[key]
