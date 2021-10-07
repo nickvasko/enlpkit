@@ -34,14 +34,6 @@ For information on the models used, I'd direct you to the [Trankit technical pap
 
 eNLPKit can be easily installed via one of the following methods:
 
-#### Using pip
-
-```shell script
-pip install enlpkit
-```
-
-The command would install Trankit and all dependent packages automatically.
-
 #### From source
 
 ```shell script
